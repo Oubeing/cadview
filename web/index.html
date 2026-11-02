@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cadview · STEP / STL 查看与旋转</title>
+<link rel="stylesheet" href="/static/style.css">
+<script type="importmap">
+{ "imports": { "three": "/static/three.module.js" } }
+</script>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <b>cadview</b>
+    <span>STEP / STL 查看 · 绕坐标轴旋转 · 导出</span>
+  </div>
+  <div class="head-right">
+    <span class="badge" id="engine-badge">cutsim</span>
+    <button id="btn-quit" class="ghost danger">退出</button>
+  </div>
+</header>
+
+<main>
+  <aside id="sidebar">
+
+    <section class="panel">
+      <h2>打开模型</h2>
+      <button id="btn-pick-file" class="primary wide">选择文件…</button>
+      <button id="btn-pick-dir" class="wide">浏览文件夹…</button>
+      <div id="current-file" class="current-file hidden">
+        <span class="cf-name"></span>
+        <span class="cf-path mono"></span>
+      </div>
+      <div id="file-list" class="file-list">
+        <div class="muted small">点击「浏览文件夹…」选择目录</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>绕坐标轴旋转</h2>
+      <div class="row">
+        <label for="angle">角度</label>
+        <input id="angle" type="number" value="90" step="1">
+        <span class="muted">°</span>
+      </div>
+      <div class="rot-grid">
+        <button data-axis="x">X 轴</button>
+        <button data-axis="y">Y 轴</button>
+        <button data-axis="z">Z 轴</button>
+      </div>
+      <div class="hint">
+        角度<strong>带正负号</strong>表示方向：<strong>+90°</strong> 沿轴正向右手定则旋转，
+        <strong>−90°</strong> 反向。旋转改变模型在坐标系中的方位，可多次叠加。
+      </div>
+      <div class="row">
+        <button id="btn-reset" class="wide">复位（回到原始姿态）</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>导出</h2>
+      <div class="row">
+        <select id="export-format">
+          <option value="stl">STL（cutsim）</option>
+          <option value="step">STEP</option>
+        </select>
+        <button id="btn-pick-save" class="wide">另存为…</button>
+      </div>
+      <div class="row">
+        <input id="export-path" type="text" placeholder="输出文件路径" spellcheck="false">
+      </div>
+      <div class="row">
+        <button id="btn-export" class="primary wide">导出</button>
+      </div>
+      <div class="hint" id="export-hint"></div>
+    </section>
+
+    <section class="panel">
+      <h2>显示</h2>
+      <div class="row wrap">
+        <label class="chk"><input type="checkbox" id="opt-axes" checked>坐标轴</label>
+        <label class="chk"><input type="checkbox" id="opt-grid" checked>网格</label>
+        <label class="chk"><input type="checkbox" id="opt-wire">线框</label>
+      </div>
+      <div class="row">
+        <button id="btn-fit" class="wide">适配视图</button>
+      </div>
+    </section>
+
+  </aside>
+
+  <section id="viewport">
+    <canvas id="canvas"></canvas>
+    <div id="axis-widget">
+      <svg viewBox="0 0 100 100" aria-label="坐标系方向指示">
+        <defs>
+          <marker id="ah-x" viewBox="0 0 10 10" refX="8" refY="5"
+                  markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#d64545"></path>
+          </marker>
+          <marker id="ah-y" viewBox="0 0 10 10" refX="8" refY="5"
+                  markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#2f9e44"></path>
+          </marker>
+          <marker id="ah-z" viewBox="0 0 10 10" refX="8" refY="5"
+                  markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#2f6fd0"></path>
+          </marker>
+        </defs>
+        <g id="axg">
+          <line class="ax-x" x1="50" y1="50" x2="50" y2="14" marker-end="url(#ah-x)"></line>
+          <text class="ax-tx" x="50" y="9">X</text>
+          <line class="ax-y" x1="50" y1="50" x2="82" y2="68" marker-end="url(#ah-y)"></line>
+          <text class="ax-ty" x="88" y="72">Y</text>
+          <line class="ax-z" x1="50" y1="50" x2="22" y2="70" marker-end="url(#ah-z)"></line>
+          <text class="ax-tz" x="14" y="78">Z</text>
+          <circle cx="50" cy="50" r="2.6" class="ax-o"></circle>
+        </g>
+      </svg>
+    </div>
+    <div id="axis-legend">
+      <span class="lg lg-x">X</span><span class="lg lg-y">Y</span><span class="lg lg-z">Z</span>
+      <span class="lg-txt">世界坐标系</span>
+    </div>
+    <div id="hint">左键拖动旋转 · 右键平移 · 滚轮缩放</div>
+    <div id="loading" class="hidden">载入中…</div>
+    <div id="empty" class="empty">点击左侧「选择文件…」打开 STEP / STL 模型</div>
+  </section>
+</main>
+
+<footer>
+  <span id="stat-name">未载入模型</span>
+  <span id="stat-model" class="mono"></span>
+  <span id="stat-msg" class="msg"></span>
+</footer>
+
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>
